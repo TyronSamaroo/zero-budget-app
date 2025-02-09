@@ -1,0 +1,29 @@
+# Go build artifacts
+*.exe
+*.out
+*.log
+*.test
+*.cache
+bin/
+vendor/
+
+# Node modules (for frontend)
+node_modules/
+dist/
+
+# Environment variables
+.env
+.env.local
+.env.production
+
+# IDE-specific files
+.vscode/
+.idea/
+.DS_Store
+
+# macOS specific files
+.AppleDouble
+.LSOverride
+Icon?
+ehthumbs.db
+Thumbs.db
