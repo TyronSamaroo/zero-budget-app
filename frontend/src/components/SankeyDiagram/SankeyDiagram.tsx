@@ -3,19 +3,19 @@ import * as d3 from 'd3';
 import { sankey, sankeyLinkHorizontal } from 'd3-sankey';
 import { Box, useTheme } from '@mui/material';
 
-interface SankeyNode {
+export interface SankeyNode {
   name: string;
   category: 'income' | 'expense' | 'savings';
   value: number;
 }
 
-interface SankeyLink {
+export interface SankeyLink {
   source: number;
   target: number;
   value: number;
 }
 
-interface SankeyData {
+export interface SankeyData {
   nodes: SankeyNode[];
   links: SankeyLink[];
 }
