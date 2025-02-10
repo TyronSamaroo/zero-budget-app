@@ -45,6 +45,8 @@ import {
   Bar,
 } from 'recharts';
 import { format, subDays } from 'date-fns';
+import DateSelector from '../components/shared/DateSelector';
+import useBudgetStore from '../store/budgetStore';
 
 // Common expense categories
 const EXPENSE_CATEGORIES = {
@@ -91,7 +93,12 @@ const Dashboard = () => {
     type: 'expense',
   });
 
-  const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
+  const {
+    selectedDate,
+    timeRange,
+    setSelectedDate,
+    setTimeRange,
+  } = useBudgetStore();
 
   const totalSpent = transactions
     .filter(t => t.type === 'expense')
@@ -136,20 +143,12 @@ const Dashboard = () => {
               Here's your financial overview
             </Typography>
           </Box>
-          <LocalizationProvider dateAdapter={AdapterDateFns}>
-            <DatePicker
-              value={selectedDate}
-              onChange={(newValue) => setSelectedDate(newValue)}
-              label="Select Month"
-              views={['year', 'month']}
-              slotProps={{
-                textField: {
-                  size: 'small',
-                  sx: { bgcolor: 'background.paper' }
-                }
-              }}
-            />
-          </LocalizationProvider>
+          <DateSelector
+            selectedDate={selectedDate}
+            onDateChange={(date) => date && setSelectedDate(date)}
+            timeRange={timeRange}
+            onTimeRangeChange={setTimeRange}
+          />
         </Box>
       </Box>
 

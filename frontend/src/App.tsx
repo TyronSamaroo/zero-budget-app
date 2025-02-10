@@ -1,10 +1,7 @@
 import React from 'react';
 import { ThemeProvider, CssBaseline, GlobalStyles } from '@mui/material';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import MainLayout from './components/layout/MainLayout';
-import Dashboard from './pages/Dashboard';
-import Budget from './pages/Budget';
-import Reports from './pages/Reports';
+import { BrowserRouter as Router } from 'react-router-dom';
+import AppRoutes from './routes';
 import { theme } from './theme/theme';
 
 const globalStyles = {
@@ -51,13 +48,7 @@ function App() {
       <CssBaseline />
       <GlobalStyles styles={globalStyles} />
       <Router>
-        <MainLayout>
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/budget" element={<Budget />} />
-            <Route path="/reports" element={<Reports />} />
-          </Routes>
-        </MainLayout>
+        <AppRoutes />
       </Router>
     </ThemeProvider>
   );
