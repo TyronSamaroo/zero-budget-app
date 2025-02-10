@@ -29,6 +29,22 @@ import {
   TrendingDown,
 } from '@mui/icons-material';
 import { gradients } from '../theme/theme';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+} from 'recharts';
+import { format, subDays } from 'date-fns';
 
 // Common expense categories
 const EXPENSE_CATEGORIES = {
@@ -51,6 +67,16 @@ interface Transaction {
   type: 'income' | 'expense';
 }
 
+// Sample data for daily spending
+const generateDailyData = () => {
+  return Array.from({ length: 7 }, (_, i) => ({
+    date: format(subDays(new Date(), i), 'MMM dd'),
+    amount: Math.floor(Math.random() * 200) + 50,
+  })).reverse();
+};
+
+const dailySpending = generateDailyData();
+
 const Dashboard = () => {
   const [monthlyIncome, setMonthlyIncome] = useState(5000);
   const [editingIncome, setEditingIncome] = useState(false);
@@ -64,6 +90,8 @@ const Dashboard = () => {
     subcategory: '',
     type: 'expense',
   });
+
+  const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
 
   const totalSpent = transactions
     .filter(t => t.type === 'expense')
@@ -99,12 +127,30 @@ const Dashboard = () => {
   return (
     <Container maxWidth="lg">
       <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" gutterBottom fontWeight="bold">
-          Welcome back!
-        </Typography>
-        <Typography variant="body1" color="text.secondary">
-          Here's your financial overview
-        </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Box>
+            <Typography variant="h4" gutterBottom fontWeight="bold">
+              Welcome back!
+            </Typography>
+            <Typography variant="body1" color="text.secondary">
+              Here's your financial overview
+            </Typography>
+          </Box>
+          <LocalizationProvider dateAdapter={AdapterDateFns}>
+            <DatePicker
+              value={selectedDate}
+              onChange={(newValue) => setSelectedDate(newValue)}
+              label="Select Month"
+              views={['year', 'month']}
+              slotProps={{
+                textField: {
+                  size: 'small',
+                  sx: { bgcolor: 'background.paper' }
+                }
+              }}
+            />
+          </LocalizationProvider>
+        </Box>
       </Box>
 
       <Grid container spacing={3}>
@@ -206,7 +252,69 @@ const Dashboard = () => {
           </Paper>
         </Grid>
 
-        {/* Recent Transactions */}
+        {/* Daily Spending Trend */}
+        <Grid item xs={12} md={8}>
+          <Paper sx={{ p: 3 }}>
+            <Typography variant="h6" gutterBottom>Daily Spending Trend</Typography>
+            <Box height={300}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={dailySpending}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar
+                    dataKey="amount"
+                    fill="url(#colorSpending)"
+                    radius={[4, 4, 0, 0]}
+                  />
+                  <defs>
+                    <linearGradient id="colorSpending" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#4318FF" stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor="#4318FF" stopOpacity={0.2}/>
+                    </linearGradient>
+                  </defs>
+                </BarChart>
+              </ResponsiveContainer>
+            </Box>
+          </Paper>
+        </Grid>
+
+        {/* Category Spending */}
+        <Grid item xs={12} md={4}>
+          <Paper sx={{ p: 3 }}>
+            <Typography variant="h6" gutterBottom>Category Spending</Typography>
+            <Box height={300}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={Object.entries(EXPENSE_CATEGORIES).slice(0, 5).map(([category]) => ({
+                    name: category,
+                    amount: Math.floor(Math.random() * 1000) + 200,
+                  }))}
+                  layout="vertical"
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis type="number" />
+                  <YAxis dataKey="name" type="category" width={100} />
+                  <Tooltip />
+                  <Bar
+                    dataKey="amount"
+                    fill="url(#colorCategory)"
+                    radius={[0, 4, 4, 0]}
+                  />
+                  <defs>
+                    <linearGradient id="colorCategory" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="5%" stopColor="#38CB89" stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor="#38CB89" stopOpacity={0.2}/>
+                    </linearGradient>
+                  </defs>
+                </BarChart>
+              </ResponsiveContainer>
+            </Box>
+          </Paper>
+        </Grid>
+
+        {/* Recent Transactions with enhanced styling */}
         <Grid item xs={12}>
           <Paper sx={{ p: 3 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
@@ -230,22 +338,41 @@ const Dashboard = () => {
                         display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'center',
+                        bgcolor: 'background.paper',
+                        transition: 'transform 0.2s',
+                        '&:hover': {
+                          transform: 'translateY(-2px)',
+                        },
                       }}
                     >
                       <Box>
                         <Typography variant="subtitle1">{transaction.subcategory}</Typography>
-                        <Chip
-                          label={transaction.category}
-                          size="small"
-                          sx={{ mt: 1 }}
-                        />
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+                          <Chip
+                            label={transaction.category}
+                            size="small"
+                            sx={{
+                              bgcolor: 'rgba(67, 24, 255, 0.1)',
+                              color: 'primary.main',
+                            }}
+                          />
+                          <Typography variant="caption" color="text.secondary">
+                            {format(new Date(transaction.date), 'MMM dd, yyyy')}
+                          </Typography>
+                        </Box>
                       </Box>
-                      <Typography
-                        variant="h6"
-                        color={transaction.type === 'expense' ? 'error.main' : 'success.main'}
-                      >
-                        {transaction.type === 'expense' ? '-' : '+'}${transaction.amount}
-                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <Typography
+                          variant="h6"
+                          color={transaction.type === 'expense' ? 'error.main' : 'success.main'}
+                          sx={{ fontWeight: 600 }}
+                        >
+                          {transaction.type === 'expense' ? '-' : '+'}${transaction.amount}
+                        </Typography>
+                        <IconButton size="small">
+                          <MoreVertIcon />
+                        </IconButton>
+                      </Box>
                     </Paper>
                   </Grid>
                 ))}

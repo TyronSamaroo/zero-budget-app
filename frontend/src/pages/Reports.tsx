@@ -21,10 +21,58 @@ import {
   TrendingDown,
   CalendarToday,
 } from '@mui/icons-material';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { format, subMonths, subDays } from 'date-fns';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+} from 'recharts';
 import SankeyDiagram from '../components/SankeyDiagram/SankeyDiagram';
 import { SankeyData } from '../components/SankeyDiagram/SankeyDiagram';
 import { gradients } from '../theme/theme';
 import { EXPENSE_CATEGORIES } from '../constants/categories';
+
+// Custom tooltip component for charts
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <Paper
+        sx={{
+          p: 2,
+          backgroundColor: 'rgba(22, 28, 36, 0.9)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+        }}
+      >
+        <Typography variant="body2" color="text.secondary" mb={1}>
+          {label}
+        </Typography>
+        {payload.map((entry: any, index: number) => (
+          <Box key={index} sx={{ color: entry.color, mb: 0.5 }}>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              {entry.name}: ${entry.value.toLocaleString()}
+            </Typography>
+          </Box>
+        ))}
+      </Paper>
+    );
+  }
+  return null;
+};
 
 const sampleData: SankeyData = {
   nodes: [
@@ -42,10 +90,40 @@ const sampleData: SankeyData = {
   ],
 };
 
+// Sample data for charts
+const generateMonthlyData = () => {
+  return Array.from({ length: 6 }, (_, i) => ({
+    month: format(subMonths(new Date(), i), 'MMM yyyy'),
+    income: 4000 + Math.random() * 2000,
+    expenses: 2500 + Math.random() * 1500,
+    savings: 1000 + Math.random() * 1000,
+  })).reverse();
+};
+
+// Sample data for daily spending
+const generateDailyData = () => {
+  return Array.from({ length: 7 }, (_, i) => ({
+    date: format(subDays(new Date(), i), 'MMM dd'),
+    amount: Math.floor(Math.random() * 200) + 50,
+  })).reverse();
+};
+
+const monthlyData = generateMonthlyData();
+const dailySpending = generateDailyData();
+
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
+
 const Reports = () => {
+  const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [timeRange, setTimeRange] = useState('month');
   const [reportType, setReportType] = useState('cashflow');
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+
+  const handleDateChange = (value: unknown) => {
+    if (value instanceof Date || value === null) {
+      setSelectedDate(value);
+    }
+  };
 
   const handleTimeRangeChange = (
     event: React.MouseEvent<HTMLElement>,
@@ -67,22 +145,32 @@ const Reports = () => {
           <Typography variant="h4" fontWeight="bold">
             Reports & Insights
           </Typography>
-          <ToggleButtonGroup
-            value={timeRange}
-            exclusive
-            onChange={handleTimeRangeChange}
-            aria-label="time range"
-          >
-            <ToggleButton value="month" aria-label="month">
-              Month
-            </ToggleButton>
-            <ToggleButton value="quarter" aria-label="quarter">
-              Quarter
-            </ToggleButton>
-            <ToggleButton value="year" aria-label="year">
-              Year
-            </ToggleButton>
-          </ToggleButtonGroup>
+          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+            <LocalizationProvider dateAdapter={AdapterDateFns}>
+              <DatePicker
+                value={selectedDate}
+                onChange={handleDateChange}
+                label="Select Month"
+                views={['year', 'month']}
+                slotProps={{
+                  textField: {
+                    size: 'small',
+                    sx: { bgcolor: 'background.paper' }
+                  }
+                }}
+              />
+            </LocalizationProvider>
+            <ToggleButtonGroup
+              value={timeRange}
+              exclusive
+              onChange={handleTimeRangeChange}
+              aria-label="time range"
+            >
+              <ToggleButton value="month" aria-label="month">Month</ToggleButton>
+              <ToggleButton value="quarter" aria-label="quarter">Quarter</ToggleButton>
+              <ToggleButton value="year" aria-label="year">Year</ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
         </Box>
 
         <Tabs
@@ -111,6 +199,61 @@ const Reports = () => {
               </Typography>
               <Box height="500px">
                 <SankeyDiagram data={sampleData} height={500} />
+              </Box>
+            </Paper>
+          </Grid>
+
+          <Grid item xs={12}>
+            <Paper sx={{ p: 3 }}>
+              <Typography variant="h6" gutterBottom>Income vs. Expenses Trend</Typography>
+              <Box height={400}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={monthlyData}>
+                    <defs>
+                      <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#4318FF" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#4318FF" stopOpacity={0}/>
+                      </linearGradient>
+                      <linearGradient id="colorExpenses" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#FF5630" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#FF5630" stopOpacity={0}/>
+                      </linearGradient>
+                      <linearGradient id="colorSavings" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#38CB89" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#38CB89" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend />
+                    <Area
+                      type="monotone"
+                      dataKey="income"
+                      stroke="#4318FF"
+                      fillOpacity={1}
+                      fill="url(#colorIncome)"
+                      name="Income"
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="expenses"
+                      stroke="#FF5630"
+                      fillOpacity={1}
+                      fill="url(#colorExpenses)"
+                      name="Expenses"
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="savings"
+                      stroke="#38CB89"
+                      fillOpacity={1}
+                      fill="url(#colorSavings)"
+                      name="Savings"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
               </Box>
             </Paper>
           </Grid>
@@ -214,6 +357,101 @@ const Reports = () => {
                   </Grid>
                 ))}
               </Grid>
+            </Paper>
+          </Grid>
+
+          <Grid item xs={12} md={8}>
+            <Paper sx={{ p: 3 }}>
+              <Typography variant="h6" gutterBottom>Daily Spending Trend</Typography>
+              <Box height={300}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={dailySpending}>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Bar
+                      dataKey="amount"
+                      fill="url(#colorSpending)"
+                      radius={[4, 4, 0, 0]}
+                    >
+                      <defs>
+                        <linearGradient id="colorSpending" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#4318FF" stopOpacity={0.8}/>
+                          <stop offset="95%" stopColor="#4318FF" stopOpacity={0.2}/>
+                        </linearGradient>
+                      </defs>
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </Box>
+            </Paper>
+          </Grid>
+
+          <Grid item xs={12} md={4}>
+            <Paper sx={{ p: 3 }}>
+              <Typography variant="h6" gutterBottom>Category Distribution</Typography>
+              <Box height={300}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={Object.entries(EXPENSE_CATEGORIES).slice(0, 6).map(([category], index) => ({
+                        name: category,
+                        value: Math.random() * 1000,
+                      }))}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {Object.entries(EXPENSE_CATEGORIES).slice(0, 6).map((_, index) => (
+                        <Cell 
+                          key={`cell-${index}`} 
+                          fill={COLORS[index % COLORS.length]}
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      content={<CustomTooltip />}
+                      formatter={(value: any) => `$${value.toLocaleString()}`}
+                    />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </Box>
+            </Paper>
+          </Grid>
+
+          <Grid item xs={12}>
+            <Paper sx={{ p: 3 }}>
+              <Typography variant="h6" gutterBottom>Savings Growth</Typography>
+              <Box height={300}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={monthlyData}>
+                    <defs>
+                      <linearGradient id="colorSavingsGrowth" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#38CB89" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#38CB89" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Area
+                      type="monotone"
+                      dataKey="savings"
+                      stroke="#38CB89"
+                      fillOpacity={1}
+                      fill="url(#colorSavingsGrowth)"
+                      name="Savings"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </Box>
             </Paper>
           </Grid>
         </Grid>
