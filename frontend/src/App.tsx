@@ -1,7 +1,9 @@
 import React from 'react';
 import { ThemeProvider, CssBaseline, GlobalStyles } from '@mui/material';
-import { BrowserRouter as Router } from 'react-router-dom';
-import AppRoutes from './routes';
+import { RouterProvider, createBrowserRouter } from 'react-router-dom';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { routes } from './routes';
 import { theme } from './theme/theme';
 
 const globalStyles = {
@@ -42,14 +44,16 @@ const globalStyles = {
   },
 };
 
+const router = createBrowserRouter(routes);
+
 function App() {
   return (
     <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <GlobalStyles styles={globalStyles} />
-      <Router>
-        <AppRoutes />
-      </Router>
+      <LocalizationProvider dateAdapter={AdapterDateFns}>
+        <CssBaseline />
+        <GlobalStyles styles={globalStyles} />
+        <RouterProvider router={router} />
+      </LocalizationProvider>
     </ThemeProvider>
   );
 }
