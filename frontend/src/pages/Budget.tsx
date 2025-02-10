@@ -21,12 +21,20 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import {
   Add as AddIcon,
   MoreVert as MoreVertIcon,
   Edit as EditIcon,
   ArrowForward as ArrowForwardIcon,
+  Check as CheckIcon,
+  Close as CloseIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -123,6 +131,11 @@ const Budget = () => {
   const [budgetType, setBudgetType] = useState<'flex' | 'category'>('flex');
   const [categories, setCategories] = useState<BudgetCategory[]>(initialCategories);
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
+  const [newCategory, setNewCategory] = useState<Partial<BudgetCategory>>({
+    type: 'flexible',
+    rollover: false,
+  });
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
 
   const totalBudgeted = categories.reduce((sum, cat) => sum + cat.budgeted, 0);
   const totalSpent = categories.reduce((sum, cat) => sum + cat.spent, 0);
@@ -142,6 +155,44 @@ const Budget = () => {
     remaining: cat.budgeted - cat.spent,
   }));
 
+  const handleEditCategory = (category: BudgetCategory) => {
+    setEditingCategory(category.id);
+  };
+
+  const handleSaveCategory = (id: string, updates: Partial<BudgetCategory>) => {
+    setCategories(categories.map(cat => 
+      cat.id === id ? { ...cat, ...updates } : cat
+    ));
+    setEditingCategory(null);
+  };
+
+  const handleAddCategory = () => {
+    if (newCategory.name && newCategory.budgeted !== undefined) {
+      const category: BudgetCategory = {
+        id: Date.now().toString(),
+        name: newCategory.name,
+        type: newCategory.type || 'flexible',
+        budgeted: newCategory.budgeted,
+        spent: 0,
+        rollover: newCategory.rollover || false,
+        emoji: newCategory.emoji,
+      };
+      setCategories([...categories, category]);
+      setNewCategory({ type: 'flexible', rollover: false });
+      setIsAddingCategory(false);
+    }
+  };
+
+  const handleDeleteCategory = (id: string) => {
+    setCategories(categories.filter(cat => cat.id !== id));
+  };
+
+  const handleDateChange = (value: unknown) => {
+    if (value instanceof Date || value === null) {
+      setSelectedDate(value);
+    }
+  };
+
   return (
     <Container maxWidth="lg">
       <Box sx={{ mb: 4 }}>
@@ -152,14 +203,17 @@ const Budget = () => {
           <LocalizationProvider dateAdapter={AdapterDateFns}>
             <DatePicker
               value={selectedDate}
-              onChange={(newValue) => setSelectedDate(newValue)}
+              onChange={handleDateChange}
               label="Select Month"
               views={['year', 'month']}
-              slotProps={{
-                textField: {
-                  size: 'small',
-                  sx: { bgcolor: 'background.paper' }
-                }
+              slots={{
+                textField: (params) => (
+                  <TextField
+                    {...params}
+                    size="small"
+                    sx={{ bgcolor: 'background.paper' }}
+                  />
+                )
               }}
             />
           </LocalizationProvider>
@@ -187,48 +241,218 @@ const Budget = () => {
 
       {budgetType === 'flex' && (
         <Grid container spacing={3}>
-          {/* Fixed Expenses */}
+          {/* Detailed Budget Table - Moved to Top */}
           <Grid item xs={12}>
-            <Paper
-              sx={{
-                p: 3,
-                backgroundImage: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%)',
-              }}
-            >
+            <Paper sx={{ p: 3 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                <Typography variant="h6">Fixed Expenses</Typography>
-                <Button startIcon={<AddIcon />} variant="contained">
-                  Add Fixed Expense
+                <Typography variant="h6">Detailed Budget</Typography>
+                <Button 
+                  startIcon={<AddIcon />} 
+                  variant="contained"
+                  onClick={() => setIsAddingCategory(true)}
+                >
+                  Add Category
                 </Button>
               </Box>
-              {categories
-                .filter(cat => cat.type === 'fixed')
-                .map(category => (
-                  <Box
-                    key={category.id}
-                    sx={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      mb: 2,
-                      p: 2,
-                      bgcolor: 'rgba(255, 255, 255, 0.05)',
-                      borderRadius: 2,
-                    }}
-                  >
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                      <Typography variant="body1">{category.emoji} {category.name}</Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                      <Typography variant="h6">${category.budgeted.toLocaleString()}</Typography>
-                      <IconButton size="small">
-                        <EditIcon />
-                      </IconButton>
-                    </Box>
-                  </Box>
-                ))}
+              <TableContainer>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Category</TableCell>
+                      <TableCell>Type</TableCell>
+                      <TableCell align="right">Budgeted</TableCell>
+                      <TableCell align="right">Spent</TableCell>
+                      <TableCell align="right">Remaining</TableCell>
+                      <TableCell align="right">Progress</TableCell>
+                      <TableCell align="right">Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {categories.map((category) => (
+                      <TableRow key={category.id}>
+                        <TableCell component="th" scope="row">
+                          {editingCategory === category.id ? (
+                            <Box sx={{ display: 'flex', gap: 1 }}>
+                              <TextField
+                                size="small"
+                                value={category.emoji || ''}
+                                onChange={(e) => handleSaveCategory(category.id, { emoji: e.target.value })}
+                                placeholder="Emoji"
+                                sx={{ width: 80 }}
+                              />
+                              <TextField
+                                size="small"
+                                value={category.name}
+                                onChange={(e) => handleSaveCategory(category.id, { name: e.target.value })}
+                                placeholder="Category Name"
+                              />
+                            </Box>
+                          ) : (
+                            <Typography>{category.emoji} {category.name}</Typography>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {editingCategory === category.id ? (
+                            <TextField
+                              select
+                              size="small"
+                              value={category.type}
+                              onChange={(e) => handleSaveCategory(category.id, { type: e.target.value as BudgetCategory['type'] })}
+                            >
+                              <MenuItem value="fixed">Fixed</MenuItem>
+                              <MenuItem value="flexible">Flexible</MenuItem>
+                              <MenuItem value="non-monthly">Non-Monthly</MenuItem>
+                            </TextField>
+                          ) : (
+                            <Chip 
+                              label={category.type} 
+                              size="small"
+                              color={category.type === 'fixed' ? 'primary' : category.type === 'flexible' ? 'success' : 'warning'}
+                            />
+                          )}
+                        </TableCell>
+                        <TableCell align="right">
+                          {editingCategory === category.id ? (
+                            <TextField
+                              size="small"
+                              type="number"
+                              value={category.budgeted}
+                              onChange={(e) => handleSaveCategory(category.id, { budgeted: Number(e.target.value) })}
+                              sx={{ width: 120 }}
+                            />
+                          ) : (
+                            `$${category.budgeted.toLocaleString()}`
+                          )}
+                        </TableCell>
+                        <TableCell align="right">${category.spent.toLocaleString()}</TableCell>
+                        <TableCell align="right">
+                          ${(category.budgeted - category.spent).toLocaleString()}
+                        </TableCell>
+                        <TableCell align="right" sx={{ width: '20%' }}>
+                          <LinearProgress
+                            variant="determinate"
+                            value={(category.spent / category.budgeted) * 100}
+                            sx={{
+                              height: 8,
+                              borderRadius: 4,
+                              bgcolor: 'rgba(255,255,255,0.1)',
+                              '& .MuiLinearProgress-bar': {
+                                bgcolor: category.spent > category.budgeted ? 'error.main' : 'primary.main',
+                                backgroundImage: category.spent > category.budgeted ? gradients.error : gradients.primary,
+                              },
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell align="right">
+                          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                            {editingCategory === category.id ? (
+                              <>
+                                <IconButton 
+                                  size="small" 
+                                  color="primary"
+                                  onClick={() => setEditingCategory(null)}
+                                >
+                                  <CheckIcon />
+                                </IconButton>
+                                <IconButton 
+                                  size="small" 
+                                  color="error"
+                                  onClick={() => setEditingCategory(null)}
+                                >
+                                  <CloseIcon />
+                                </IconButton>
+                              </>
+                            ) : (
+                              <>
+                                <IconButton 
+                                  size="small"
+                                  onClick={() => handleEditCategory(category)}
+                                >
+                                  <EditIcon />
+                                </IconButton>
+                                <IconButton 
+                                  size="small" 
+                                  color="error"
+                                  onClick={() => handleDeleteCategory(category.id)}
+                                >
+                                  <DeleteIcon />
+                                </IconButton>
+                              </>
+                            )}
+                          </Box>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
             </Paper>
           </Grid>
+
+          {/* Add Category Dialog */}
+          <Dialog open={isAddingCategory} onClose={() => setIsAddingCategory(false)} maxWidth="sm" fullWidth>
+            <DialogTitle>Add New Budget Category</DialogTitle>
+            <DialogContent>
+              <Grid container spacing={2} sx={{ mt: 1 }}>
+                <Grid item xs={12} sm={2}>
+                  <TextField
+                    fullWidth
+                    label="Emoji"
+                    value={newCategory.emoji || ''}
+                    onChange={(e) => setNewCategory({ ...newCategory, emoji: e.target.value })}
+                    placeholder="📊"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={10}>
+                  <TextField
+                    fullWidth
+                    label="Category Name"
+                    value={newCategory.name || ''}
+                    onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    select
+                    fullWidth
+                    label="Type"
+                    value={newCategory.type}
+                    onChange={(e) => setNewCategory({ ...newCategory, type: e.target.value as BudgetCategory['type'] })}
+                  >
+                    <MenuItem value="fixed">Fixed</MenuItem>
+                    <MenuItem value="flexible">Flexible</MenuItem>
+                    <MenuItem value="non-monthly">Non-Monthly</MenuItem>
+                  </TextField>
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    label="Budgeted Amount"
+                    value={newCategory.budgeted || ''}
+                    onChange={(e) => setNewCategory({ ...newCategory, budgeted: Number(e.target.value) })}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={newCategory.rollover || false}
+                        onChange={(e) => setNewCategory({ ...newCategory, rollover: e.target.checked })}
+                      />
+                    }
+                    label="Rollover Unspent Amount"
+                  />
+                </Grid>
+              </Grid>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setIsAddingCategory(false)}>Cancel</Button>
+              <Button onClick={handleAddCategory} variant="contained">
+                Add Category
+              </Button>
+            </DialogActions>
+          </Dialog>
 
           {/* Budget Overview Chart */}
           <Grid item xs={12}>
@@ -335,55 +559,6 @@ const Budget = () => {
                   </AreaChart>
                 </ResponsiveContainer>
               </Box>
-            </Paper>
-          </Grid>
-
-          {/* Detailed Budget Table */}
-          <Grid item xs={12}>
-            <Paper sx={{ p: 3 }}>
-              <Typography variant="h6" gutterBottom>Detailed Budget</Typography>
-              <TableContainer>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Category</TableCell>
-                      <TableCell align="right">Budgeted</TableCell>
-                      <TableCell align="right">Spent</TableCell>
-                      <TableCell align="right">Remaining</TableCell>
-                      <TableCell align="right">Progress</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {categories.map((category) => (
-                      <TableRow key={category.id}>
-                        <TableCell component="th" scope="row">
-                          {category.emoji} {category.name}
-                        </TableCell>
-                        <TableCell align="right">${category.budgeted.toLocaleString()}</TableCell>
-                        <TableCell align="right">${category.spent.toLocaleString()}</TableCell>
-                        <TableCell align="right">
-                          ${(category.budgeted - category.spent).toLocaleString()}
-                        </TableCell>
-                        <TableCell align="right" sx={{ width: '20%' }}>
-                          <LinearProgress
-                            variant="determinate"
-                            value={(category.spent / category.budgeted) * 100}
-                            sx={{
-                              height: 8,
-                              borderRadius: 4,
-                              bgcolor: 'rgba(255,255,255,0.1)',
-                              '& .MuiLinearProgress-bar': {
-                                bgcolor: category.spent > category.budgeted ? 'error.main' : 'primary.main',
-                                backgroundImage: category.spent > category.budgeted ? gradients.error : gradients.primary,
-                              },
-                            }}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
             </Paper>
           </Grid>
 
