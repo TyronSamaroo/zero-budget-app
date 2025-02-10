@@ -5,14 +5,13 @@ import {
   ToggleButton,
   IconButton,
   Tooltip,
+  TextField,
 } from '@mui/material';
 import {
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import {
   startOfWeek,
   endOfWeek,
@@ -119,50 +118,53 @@ const DateSelector: React.FC<DateSelectorProps> = ({
   };
 
   return (
-    <LocalizationProvider dateAdapter={AdapterDateFns}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-        {showTimeRangeSelector && (
-          <ToggleButtonGroup
-            value={timeRange}
-            exclusive
-            onChange={handleTimeRangeChange}
-            size="small"
-          >
-            <ToggleButton value="week">Week</ToggleButton>
-            <ToggleButton value="month">Month</ToggleButton>
-            <ToggleButton value="quarter">Quarter</ToggleButton>
-            <ToggleButton value="year">Year</ToggleButton>
-            <ToggleButton value="ytd">YTD</ToggleButton>
-          </ToggleButtonGroup>
-        )}
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+      {showTimeRangeSelector && (
+        <ToggleButtonGroup
+          value={timeRange}
+          exclusive
+          onChange={handleTimeRangeChange}
+          size="small"
+        >
+          <ToggleButton value="week">Week</ToggleButton>
+          <ToggleButton value="month">Month</ToggleButton>
+          <ToggleButton value="quarter">Quarter</ToggleButton>
+          <ToggleButton value="year">Year</ToggleButton>
+          <ToggleButton value="ytd">YTD</ToggleButton>
+        </ToggleButtonGroup>
+      )}
+      
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Tooltip title="Previous">
+          <IconButton onClick={() => handleNavigate('prev')} disabled={timeRange === 'ytd'}>
+            <ChevronLeftIcon />
+          </IconButton>
+        </Tooltip>
         
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Tooltip title="Previous">
-            <IconButton onClick={() => handleNavigate('prev')} disabled={timeRange === 'ytd'}>
-              <ChevronLeftIcon />
-            </IconButton>
-          </Tooltip>
-          
-          <DatePicker
-            value={selectedDate}
-            onChange={onDateChange}
-            format={timeRange === 'month' ? 'MMMM yyyy' : 'PP'}
-            slotProps={{
-              textField: {
-                size: 'small',
-                sx: { width: 200 },
-              },
-            }}
-          />
-          
-          <Tooltip title="Next">
-            <IconButton onClick={() => handleNavigate('next')} disabled={timeRange === 'ytd'}>
-              <ChevronRightIcon />
-            </IconButton>
-          </Tooltip>
-        </Box>
+        <DatePicker<Date>
+          value={selectedDate}
+          onChange={(newValue: Date | null) => onDateChange(newValue)}
+          slotProps={{
+            textField: {
+              size: "small",
+              sx: { width: 200 },
+              inputProps: {
+                readOnly: true
+              }
+            }
+          }}
+          views={timeRange === 'month' ? ['month', 'year'] : ['day', 'month', 'year']}
+          format={timeRange === 'month' ? 'MMMM yyyy' : 'MMM d, yyyy'}
+          defaultValue={selectedDate}
+        />
+        
+        <Tooltip title="Next">
+          <IconButton onClick={() => handleNavigate('next')} disabled={timeRange === 'ytd'}>
+            <ChevronRightIcon />
+          </IconButton>
+        </Tooltip>
       </Box>
-    </LocalizationProvider>
+    </Box>
   );
 };
 
