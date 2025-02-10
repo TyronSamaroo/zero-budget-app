@@ -7,10 +7,13 @@ import {
   LinearProgress,
   Grid,
   Tooltip,
+  TextField,
+  InputAdornment,
 } from '@mui/material';
 import {
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
+  Edit as EditIcon,
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { EXPENSE_CATEGORIES } from '../constants/categories';
@@ -28,11 +31,13 @@ const MonthlyBudgetGrid: React.FC<MonthlyBudgetGridProps> = ({ onMonthClick }) =
     getBudgetForMonth,
     getTransactionsForPeriod,
     getIncomeForPeriod,
+    updateMonthlyIncome,
+    updateMonthlyBudget,
   } = useBudgetStore();
 
   const handleScroll = (direction: 'left' | 'right') => {
     if (scrollContainerRef.current) {
-      const scrollAmount = direction === 'left' ? -300 : 300;
+      const scrollAmount = direction === 'left' ? -400 : 400;
       scrollContainerRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
     }
   };
@@ -81,7 +86,7 @@ const MonthlyBudgetGrid: React.FC<MonthlyBudgetGridProps> = ({ onMonthClick }) =
         sx={{
           display: 'flex',
           overflowX: 'auto',
-          gap: 2,
+          gap: 1,
           px: 6,
           scrollbarWidth: 'none',
           '&::-webkit-scrollbar': {
@@ -106,8 +111,9 @@ const MonthlyBudgetGrid: React.FC<MonthlyBudgetGridProps> = ({ onMonthClick }) =
             <Paper
               key={month.toISOString()}
               sx={{
-                minWidth: 280,
-                p: 2,
+                minWidth: 250,
+                maxWidth: 250,
+                p: 1.5,
                 cursor: 'pointer',
                 '&:hover': {
                   bgcolor: 'action.hover',
@@ -116,40 +122,63 @@ const MonthlyBudgetGrid: React.FC<MonthlyBudgetGridProps> = ({ onMonthClick }) =
               onClick={() => onMonthClick(month)}
             >
               <Typography variant="h6" gutterBottom>
-                {format(month, 'MMMM yyyy')}
+                {format(month, 'MMM yyyy')}
               </Typography>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
-                Income: ${income.toLocaleString()}
-              </Typography>
-              <Box sx={{ mt: 2 }}>
-                {Object.keys(EXPENSE_CATEGORIES).map((category) => {
-                  const budget = monthlyBudget[category] || 0;
-                  const spent = spentByCategory[category] || 0;
-                  const progress = calculateProgress(spent, budget);
-
-                  return (
-                    <Box key={category} sx={{ mb: 2 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                        <Typography variant="body2">{category}</Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          ${spent.toLocaleString()} / ${budget.toLocaleString()}
-                        </Typography>
-                      </Box>
-                      <Tooltip
-                        title={`${progress.toFixed(1)}% of budget used`}
-                        placement="top"
-                      >
-                        <LinearProgress
-                          variant="determinate"
-                          value={progress}
-                          color={getProgressColor(progress)}
-                          sx={{ height: 6, borderRadius: 1 }}
-                        />
-                      </Tooltip>
-                    </Box>
-                  );
-                })}
+              
+              {/* Editable Income */}
+              <Box sx={{ mb: 2 }}>
+                <TextField
+                  size="small"
+                  label="Income"
+                  type="number"
+                  value={income}
+                  onChange={(e) => updateMonthlyIncome(Number(e.target.value), month)}
+                  onClick={(e) => e.stopPropagation()}
+                  InputProps={{
+                    startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                  }}
+                  fullWidth
+                  sx={{ mb: 1 }}
+                />
               </Box>
+
+              {Object.keys(EXPENSE_CATEGORIES).map((category) => {
+                const budget = monthlyBudget[category] || 0;
+                const spent = spentByCategory[category] || 0;
+                const progress = calculateProgress(spent, budget);
+
+                return (
+                  <Box key={category} sx={{ mb: 1 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                      <Typography variant="body2" noWrap sx={{ maxWidth: '100px' }}>
+                        {category}
+                      </Typography>
+                      <TextField
+                        size="small"
+                        type="number"
+                        value={budget}
+                        onChange={(e) => updateMonthlyBudget(category, Number(e.target.value), month)}
+                        onClick={(e) => e.stopPropagation()}
+                        InputProps={{
+                          startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                        }}
+                        sx={{ width: '120px' }}
+                      />
+                    </Box>
+                    <Tooltip
+                      title={`Spent: $${spent.toLocaleString()} (${progress.toFixed(1)}%)`}
+                      placement="top"
+                    >
+                      <LinearProgress
+                        variant="determinate"
+                        value={progress}
+                        color={getProgressColor(progress)}
+                        sx={{ height: 4, borderRadius: 1 }}
+                      />
+                    </Tooltip>
+                  </Box>
+                );
+              })}
             </Paper>
           );
         })}

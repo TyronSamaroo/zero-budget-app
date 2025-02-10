@@ -3,8 +3,8 @@ import {
   Box,
   ToggleButtonGroup,
   ToggleButton,
-  Button,
   IconButton,
+  Tooltip,
 } from '@mui/material';
 import {
   ChevronLeft as ChevronLeftIcon,
@@ -13,13 +13,30 @@ import {
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { format } from 'date-fns';
+import {
+  startOfWeek,
+  endOfWeek,
+  startOfMonth,
+  endOfMonth,
+  startOfQuarter,
+  endOfQuarter,
+  startOfYear,
+  endOfYear,
+  addWeeks,
+  addMonths,
+  addQuarters,
+  addYears,
+  subWeeks,
+  subMonths,
+  subQuarters,
+  subYears,
+} from 'date-fns';
 
 interface DateSelectorProps {
   selectedDate: Date;
   onDateChange: (date: Date | null) => void;
-  timeRange?: 'week' | 'month' | 'quarter' | 'year';
-  onTimeRangeChange?: (range: 'week' | 'month' | 'quarter' | 'year') => void;
+  timeRange?: 'week' | 'month' | 'quarter' | 'year' | 'ytd';
+  onTimeRangeChange?: (range: 'week' | 'month' | 'quarter' | 'year' | 'ytd') => void;
   showTimeRangeSelector?: boolean;
 }
 
@@ -31,80 +48,118 @@ const DateSelector: React.FC<DateSelectorProps> = ({
   showTimeRangeSelector = true,
 }) => {
   const handleTimeRangeChange = (
-    event: React.MouseEvent<HTMLElement>,
-    newTimeRange: 'week' | 'month' | 'quarter' | 'year' | null,
+    _: React.MouseEvent<HTMLElement>,
+    newRange: 'week' | 'month' | 'quarter' | 'year' | 'ytd' | null,
   ) => {
-    if (newTimeRange !== null && onTimeRangeChange) {
-      onTimeRangeChange(newTimeRange);
+    if (newRange && onTimeRangeChange) {
+      onTimeRangeChange(newRange);
+      
+      // Adjust the selected date to the start of the selected period
+      let newDate = selectedDate;
+      switch (newRange) {
+        case 'week':
+          newDate = startOfWeek(selectedDate);
+          break;
+        case 'month':
+          newDate = startOfMonth(selectedDate);
+          break;
+        case 'quarter':
+          newDate = startOfQuarter(selectedDate);
+          break;
+        case 'year':
+          newDate = startOfYear(selectedDate);
+          break;
+        case 'ytd':
+          newDate = startOfYear(new Date());
+          break;
+      }
+      onDateChange(newDate);
     }
   };
 
-  const handlePreviousMonth = () => {
-    const newDate = new Date(selectedDate);
-    newDate.setMonth(newDate.getMonth() - 1);
+  const handleNavigate = (direction: 'prev' | 'next') => {
+    let newDate = selectedDate;
+    
+    switch (timeRange) {
+      case 'week':
+        newDate = direction === 'prev' ? subWeeks(selectedDate, 1) : addWeeks(selectedDate, 1);
+        break;
+      case 'month':
+        newDate = direction === 'prev' ? subMonths(selectedDate, 1) : addMonths(selectedDate, 1);
+        break;
+      case 'quarter':
+        newDate = direction === 'prev' ? subQuarters(selectedDate, 1) : addQuarters(selectedDate, 1);
+        break;
+      case 'year':
+        newDate = direction === 'prev' ? subYears(selectedDate, 1) : addYears(selectedDate, 1);
+        break;
+      case 'ytd':
+        // For YTD, we don't allow navigation
+        return;
+    }
+    
     onDateChange(newDate);
   };
 
-  const handleNextMonth = () => {
-    const newDate = new Date(selectedDate);
-    newDate.setMonth(newDate.getMonth() + 1);
-    onDateChange(newDate);
+  const getDateRangeLabel = () => {
+    switch (timeRange) {
+      case 'week':
+        return `${startOfWeek(selectedDate).toLocaleDateString()} - ${endOfWeek(selectedDate).toLocaleDateString()}`;
+      case 'month':
+        return selectedDate.toLocaleDateString('default', { month: 'long', year: 'numeric' });
+      case 'quarter':
+        return `Q${Math.floor(selectedDate.getMonth() / 3) + 1} ${selectedDate.getFullYear()}`;
+      case 'year':
+        return selectedDate.getFullYear().toString();
+      case 'ytd':
+        return `YTD ${selectedDate.getFullYear()}`;
+      default:
+        return selectedDate.toLocaleDateString();
+    }
   };
 
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-        {showTimeRangeSelector && onTimeRangeChange && (
+        {showTimeRangeSelector && (
           <ToggleButtonGroup
             value={timeRange}
             exclusive
             onChange={handleTimeRangeChange}
-            aria-label="time range"
             size="small"
-            sx={{
-              '& .MuiToggleButton-root': {
-                px: 3,
-                py: 1,
-                textTransform: 'none',
-                fontWeight: 600,
-                '&.Mui-selected': {
-                  bgcolor: 'primary.main',
-                  color: 'white',
-                  '&:hover': {
-                    bgcolor: 'primary.dark',
-                  },
-                },
-              },
-            }}
           >
             <ToggleButton value="week">Week</ToggleButton>
             <ToggleButton value="month">Month</ToggleButton>
             <ToggleButton value="quarter">Quarter</ToggleButton>
             <ToggleButton value="year">Year</ToggleButton>
+            <ToggleButton value="ytd">YTD</ToggleButton>
           </ToggleButtonGroup>
         )}
-
+        
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <IconButton onClick={handlePreviousMonth} size="small">
-            <ChevronLeftIcon />
-          </IconButton>
+          <Tooltip title="Previous">
+            <IconButton onClick={() => handleNavigate('prev')} disabled={timeRange === 'ytd'}>
+              <ChevronLeftIcon />
+            </IconButton>
+          </Tooltip>
           
           <DatePicker
             value={selectedDate}
             onChange={onDateChange}
-            label="Select Month"
-            views={['year', 'month']}
+            format={timeRange === 'month' ? 'MMMM yyyy' : 'PP'}
             slotProps={{
               textField: {
                 size: 'small',
-                sx: { bgcolor: 'background.paper', minWidth: '150px' }
-              }
+                sx: { width: 200 },
+              },
             }}
           />
-
-          <IconButton onClick={handleNextMonth} size="small">
-            <ChevronRightIcon />
-          </IconButton>
+          
+          <Tooltip title="Next">
+            <IconButton onClick={() => handleNavigate('next')} disabled={timeRange === 'ytd'}>
+              <ChevronRightIcon />
+            </IconButton>
+          </Tooltip>
         </Box>
       </Box>
     </LocalizationProvider>

@@ -26,11 +26,11 @@ interface Settings {
 interface BudgetStore {
   budgetData: Record<string, BudgetData>;
   selectedDate: Date;
-  timeRange: 'week' | 'month' | 'quarter' | 'year';
+  timeRange: 'week' | 'month' | 'quarter' | 'year' | 'ytd';
   visibleMonths: Date[];
   settings: Settings;
   setSelectedDate: (date: Date) => void;
-  setTimeRange: (range: 'week' | 'month' | 'quarter' | 'year') => void;
+  setTimeRange: (range: 'week' | 'month' | 'quarter' | 'year' | 'ytd') => void;
   addTransaction: (transaction: Transaction) => void;
   updateMonthlyIncome: (amount: number, date: Date) => void;
   updateMonthlyBudget: (category: string, amount: number, date: Date) => void;
@@ -127,6 +127,11 @@ const useBudgetStore = create<BudgetStore>()(
             return {
               start: startOfYear(date),
               end: endOfYear(date),
+            };
+          case 'ytd':
+            return {
+              start: startOfYear(date),
+              end: date,
             };
           default:
             return {

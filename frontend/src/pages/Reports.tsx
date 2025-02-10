@@ -21,10 +21,6 @@ import {
   TrendingDown,
   CalendarToday,
 } from '@mui/icons-material';
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { format, subMonths, subDays } from 'date-fns';
 import {
   LineChart,
   Line,
@@ -42,10 +38,15 @@ import {
   BarChart,
   Bar,
 } from 'recharts';
+import { format, subMonths, subDays } from 'date-fns';
 import SankeyDiagram from '../components/SankeyDiagram/SankeyDiagram';
 import { SankeyData } from '../components/SankeyDiagram/SankeyDiagram';
 import { gradients } from '../theme/theme';
 import { EXPENSE_CATEGORIES } from '../constants/categories';
+import DateSelector from '../components/shared/DateSelector';
+import useBudgetStore from '../store/budgetStore';
+
+type TimeRangeType = 'week' | 'month' | 'quarter' | 'year' | 'ytd';
 
 // Custom tooltip component for charts
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -114,28 +115,22 @@ const dailySpending = generateDailyData();
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
 const Reports = () => {
-  const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
-  const [timeRange, setTimeRange] = useState('month');
+  const {
+    selectedDate,
+    timeRange,
+    setSelectedDate,
+    setTimeRange: setStoreTimeRange,
+  } = useBudgetStore();
+  
   const [reportType, setReportType] = useState('cashflow');
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
-  const handleDateChange = (value: unknown) => {
-    if (value instanceof Date || value === null) {
-      setSelectedDate(value);
-    }
-  };
-
-  const handleTimeRangeChange = (
-    event: React.MouseEvent<HTMLElement>,
-    newTimeRange: string,
-  ) => {
-    if (newTimeRange !== null) {
-      setTimeRange(newTimeRange);
-    }
-  };
-
   const handleReportTypeChange = (event: React.SyntheticEvent, newValue: string) => {
     setReportType(newValue);
+  };
+
+  const handleTimeRangeChange = (range: TimeRangeType) => {
+    setStoreTimeRange(range);
   };
 
   return (
@@ -145,32 +140,12 @@ const Reports = () => {
           <Typography variant="h4" fontWeight="bold">
             Reports & Insights
           </Typography>
-          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-            <LocalizationProvider dateAdapter={AdapterDateFns}>
-              <DatePicker
-                value={selectedDate}
-                onChange={handleDateChange}
-                label="Select Month"
-                views={['year', 'month']}
-                slotProps={{
-                  textField: {
-                    size: 'small',
-                    sx: { bgcolor: 'background.paper' }
-                  }
-                }}
-              />
-            </LocalizationProvider>
-            <ToggleButtonGroup
-              value={timeRange}
-              exclusive
-              onChange={handleTimeRangeChange}
-              aria-label="time range"
-            >
-              <ToggleButton value="month" aria-label="month">Month</ToggleButton>
-              <ToggleButton value="quarter" aria-label="quarter">Quarter</ToggleButton>
-              <ToggleButton value="year" aria-label="year">Year</ToggleButton>
-            </ToggleButtonGroup>
-          </Box>
+          <DateSelector
+            selectedDate={selectedDate}
+            onDateChange={(date) => date && setSelectedDate(date)}
+            timeRange={timeRange}
+            onTimeRangeChange={handleTimeRangeChange}
+          />
         </Box>
 
         <Tabs

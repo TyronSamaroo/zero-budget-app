@@ -33,6 +33,7 @@ import {
   InputAdornment,
   Grid as MuiGrid,
   CircularProgress,
+  Alert,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -44,6 +45,7 @@ import {
   Delete as DeleteIcon,
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
+  ContentCopy as CopyIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -89,6 +91,7 @@ import useBudgetStore from '../store/budgetStore';
 import BudgetCategories from '../components/budget/BudgetCategories';
 import BudgetSummary from '../components/budget/BudgetSummary';
 import DateSelector from '../components/shared/DateSelector';
+import MonthlyBudgetGrid from '../components/MonthlyBudgetGrid';
 
 export interface BudgetCategory {
   id: string;
@@ -174,12 +177,15 @@ const EMOJI_CATEGORIES = {
 const Budget = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [categories, setCategories] = useState<BudgetCategory[]>(initialCategories);
+  const [copyFromMonth, setCopyFromMonth] = useState<Date | null>(null);
+  const [showCopyDialog, setShowCopyDialog] = useState(false);
+  const [categories, setCategories] = useState<BudgetCategory[]>([]);
 
   const {
     budgetData,
     selectedDate,
     timeRange,
+    visibleMonths,
     setSelectedDate,
     setTimeRange,
     getBudgetForMonth,
@@ -187,6 +193,7 @@ const Budget = () => {
     getIncomeForPeriod,
     updateMonthlyBudget,
     updateMonthlyIncome,
+    updateVisibleMonths,
   } = useBudgetStore();
 
   useEffect(() => {
@@ -194,10 +201,23 @@ const Budget = () => {
       try {
         setIsLoading(true);
         
-        // Load categories from localStorage or use initial categories
+        // Load categories from localStorage or initialize with default categories
         const savedCategories = localStorage.getItem('budgetCategories');
         if (savedCategories) {
           setCategories(JSON.parse(savedCategories));
+        } else {
+          // Initialize with default categories from EXPENSE_CATEGORIES
+          const defaultCategories = Object.entries(EXPENSE_CATEGORIES).map(([category], index) => ({
+            id: index.toString(),
+            name: category,
+            type: 'Flexible' as const,
+            budgeted: 0,
+            spent: 0,
+            rollover: false,
+            emoji: '💰',
+          }));
+          setCategories(defaultCategories);
+          localStorage.setItem('budgetCategories', JSON.stringify(defaultCategories));
         }
 
         // Initialize monthly income if not set
@@ -206,13 +226,8 @@ const Budget = () => {
           updateMonthlyIncome(5000, selectedDate); // Default monthly income
         }
 
-        // Initialize budget categories if not set
-        const currentBudget = getBudgetForMonth(selectedDate);
-        if (Object.keys(currentBudget).length === 0) {
-          categories.forEach(category => {
-            updateMonthlyBudget(category.name, category.budgeted, selectedDate);
-          });
-        }
+        // Update visible months range
+        updateVisibleMonths(selectedDate, 12); // Show 12 months centered on selected date
         
         setError(null);
       } catch (err) {
@@ -224,11 +239,38 @@ const Budget = () => {
     };
 
     initializeBudget();
-  }, [selectedDate, updateMonthlyIncome, updateMonthlyBudget, categories, getBudgetForMonth, getIncomeForPeriod]);
+  }, [selectedDate, updateMonthlyIncome, updateVisibleMonths]);
 
-  useEffect(() => {
-    localStorage.setItem('budgetCategories', JSON.stringify(categories));
-  }, [categories]);
+  const handleCopyBudget = () => {
+    if (!copyFromMonth) return;
+    
+    const sourceBudget = getBudgetForMonth(copyFromMonth);
+    Object.entries(sourceBudget).forEach(([category, amount]) => {
+      updateMonthlyBudget(category, amount, selectedDate);
+    });
+    
+    setShowCopyDialog(false);
+    setCopyFromMonth(null);
+  };
+
+  const handleMonthClick = (date: Date) => {
+    setSelectedDate(date);
+  };
+
+  const handleUpdateCategory = (updatedCategory: BudgetCategory) => {
+    const newCategories = categories.map(cat => 
+      cat.id === updatedCategory.id ? updatedCategory : cat
+    );
+    setCategories(newCategories);
+    localStorage.setItem('budgetCategories', JSON.stringify(newCategories));
+  };
+
+  const handleAddCategory = (newCategory: BudgetCategory) => {
+    const updatedCategories = [...categories, newCategory];
+    setCategories(updatedCategories);
+    localStorage.setItem('budgetCategories', JSON.stringify(updatedCategories));
+    updateMonthlyBudget(newCategory.name, newCategory.budgeted, selectedDate);
+  };
 
   if (isLoading) {
     return (
@@ -241,7 +283,7 @@ const Budget = () => {
   if (error) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="80vh">
-        <Typography color="error">{error}</Typography>
+        <Alert severity="error">{error}</Alert>
       </Box>
     );
   }
@@ -254,16 +296,38 @@ const Budget = () => {
     <Container maxWidth="lg">
       <Box sx={{ py: 4 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-          <Typography variant="h4" gutterBottom fontWeight="bold">
-            Budget Overview
-          </Typography>
-          <DateSelector
-            selectedDate={selectedDate}
-            onDateChange={(date) => date && setSelectedDate(date)}
-            timeRange={timeRange}
-            onTimeRangeChange={setTimeRange}
-          />
+          <Box>
+            <Typography variant="h4" gutterBottom fontWeight="bold">
+              Budget Overview
+            </Typography>
+            <Typography variant="body1" color="text.secondary">
+              {format(selectedDate, 'MMMM yyyy')}
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Button
+              variant="outlined"
+              startIcon={<CopyIcon />}
+              onClick={() => setShowCopyDialog(true)}
+            >
+              Copy from Month
+            </Button>
+            <DateSelector
+              selectedDate={selectedDate}
+              onDateChange={(date) => date && setSelectedDate(date)}
+              timeRange={timeRange}
+              onTimeRangeChange={setTimeRange}
+            />
+          </Box>
         </Box>
+
+        {/* Monthly Budget Grid */}
+        <Paper sx={{ mb: 3, p: 2 }}>
+          <Typography variant="h6" gutterBottom>
+            Monthly Overview
+          </Typography>
+          <MonthlyBudgetGrid onMonthClick={handleMonthClick} />
+        </Paper>
         
         <Paper sx={{ mb: 3 }}>
           <BudgetSummary 
@@ -280,9 +344,35 @@ const Budget = () => {
             onUpdateBudget={(category, amount) => 
               updateMonthlyBudget(category, amount, selectedDate)
             }
+            onUpdateCategory={handleUpdateCategory}
+            onAddCategory={handleAddCategory}
           />
         </Paper>
       </Box>
+
+      {/* Copy Budget Dialog */}
+      <Dialog open={showCopyDialog} onClose={() => setShowCopyDialog(false)}>
+        <DialogTitle>Copy Budget from Another Month</DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 2 }}>
+            <DateSelector
+              selectedDate={copyFromMonth || selectedDate}
+              onDateChange={(date) => date && setCopyFromMonth(date)}
+              showTimeRangeSelector={false}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowCopyDialog(false)}>Cancel</Button>
+          <Button 
+            onClick={handleCopyBudget}
+            variant="contained"
+            disabled={!copyFromMonth}
+          >
+            Copy Budget
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };
