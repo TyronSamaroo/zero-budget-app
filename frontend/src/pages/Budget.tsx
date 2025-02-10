@@ -60,7 +60,7 @@ import { gradients } from '../theme/theme';
 interface BudgetCategory {
   id: string;
   name: string;
-  type: 'fixed' | 'flexible' | 'non-monthly';
+  type: 'Fixed' | 'Flexible' | 'Non-Monthly';
   budgeted: number;
   spent: number;
   rollover: boolean;
@@ -71,7 +71,7 @@ const initialCategories: BudgetCategory[] = [
   {
     id: '1',
     name: 'Rent',
-    type: 'fixed',
+    type: 'Fixed',
     budgeted: 2000,
     spent: 2000,
     rollover: false,
@@ -80,7 +80,7 @@ const initialCategories: BudgetCategory[] = [
   {
     id: '2',
     name: 'Groceries',
-    type: 'flexible',
+    type: 'Flexible',
     budgeted: 600,
     spent: 450,
     rollover: false,
@@ -89,7 +89,7 @@ const initialCategories: BudgetCategory[] = [
   {
     id: '3',
     name: 'Car Insurance',
-    type: 'non-monthly',
+    type: 'Non-Monthly',
     budgeted: 1200,
     spent: 0,
     rollover: true,
@@ -132,20 +132,29 @@ const Budget = () => {
   const [categories, setCategories] = useState<BudgetCategory[]>(initialCategories);
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
   const [newCategory, setNewCategory] = useState<Partial<BudgetCategory>>({
-    type: 'flexible',
+    type: 'Flexible',
     rollover: false,
   });
   const [isAddingCategory, setIsAddingCategory] = useState(false);
+
+  const [editableField, setEditableField] = useState<{
+    categoryId: string;
+    field: 'name' | 'emoji' | 'type' | 'budgeted' | null;
+  }>({ categoryId: '', field: null });
+
+  const [availableCategories, setAvailableCategories] = useState<string[]>([
+    'Housing', 'Transportation', 'Food', 'Utilities', 'Entertainment', 'Healthcare'
+  ]);
 
   const totalBudgeted = categories.reduce((sum, cat) => sum + cat.budgeted, 0);
   const totalSpent = categories.reduce((sum, cat) => sum + cat.spent, 0);
 
   const flexibleSpent = categories
-    .filter(cat => cat.type === 'flexible')
+    .filter(cat => cat.type === 'Flexible')
     .reduce((sum, cat) => sum + cat.spent, 0);
   
   const flexibleBudget = categories
-    .filter(cat => cat.type === 'flexible')
+    .filter(cat => cat.type === 'Flexible')
     .reduce((sum, cat) => sum + cat.budgeted, 0);
 
   const categoryData = categories.map((cat) => ({
@@ -171,14 +180,14 @@ const Budget = () => {
       const category: BudgetCategory = {
         id: Date.now().toString(),
         name: newCategory.name,
-        type: newCategory.type || 'flexible',
+        type: newCategory.type || 'Flexible',
         budgeted: newCategory.budgeted,
         spent: 0,
         rollover: newCategory.rollover || false,
         emoji: newCategory.emoji,
       };
       setCategories([...categories, category]);
-      setNewCategory({ type: 'flexible', rollover: false });
+      setNewCategory({ type: 'Flexible', rollover: false });
       setIsAddingCategory(false);
     }
   };
@@ -191,6 +200,26 @@ const Budget = () => {
     if (value instanceof Date || value === null) {
       setSelectedDate(value);
     }
+  };
+
+  const handleFieldClick = (categoryId: string, field: 'name' | 'emoji' | 'type' | 'budgeted') => {
+    setEditableField({ categoryId, field });
+  };
+
+  const handleFieldBlur = () => {
+    setEditableField({ categoryId: '', field: null });
+  };
+
+  const handleFieldKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleFieldBlur();
+    }
+  };
+
+  const handleCategoryChange = (categoryId: string, updates: Partial<BudgetCategory>) => {
+    setCategories(categories.map(cat => 
+      cat.id === categoryId ? { ...cat, ...updates } : cat
+    ));
   };
 
   return (
@@ -241,7 +270,7 @@ const Budget = () => {
 
       {budgetType === 'flex' && (
         <Grid container spacing={3}>
-          {/* Detailed Budget Table - Moved to Top */}
+          {/* Detailed Budget Table */}
           <Grid item xs={12}>
             <Paper sx={{ p: 3 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
@@ -269,56 +298,99 @@ const Budget = () => {
                   </TableHead>
                   <TableBody>
                     {categories.map((category) => (
-                      <TableRow key={category.id}>
-                        <TableCell component="th" scope="row">
-                          {editingCategory === category.id ? (
+                      <TableRow 
+                        key={category.id}
+                        sx={{ 
+                          '& td': { 
+                            cursor: 'pointer',
+                            '&:hover': {
+                              backgroundColor: 'rgba(255, 255, 255, 0.05)'
+                            }
+                          }
+                        }}
+                      >
+                        <TableCell 
+                          component="th" 
+                          scope="row"
+                          onClick={() => handleFieldClick(category.id, 'name')}
+                        >
+                          {editableField.categoryId === category.id && editableField.field === 'name' ? (
                             <Box sx={{ display: 'flex', gap: 1 }}>
                               <TextField
                                 size="small"
                                 value={category.emoji || ''}
-                                onChange={(e) => handleSaveCategory(category.id, { emoji: e.target.value })}
+                                onChange={(e) => handleCategoryChange(category.id, { emoji: e.target.value })}
+                                onBlur={handleFieldBlur}
+                                onKeyPress={handleFieldKeyPress}
                                 placeholder="Emoji"
                                 sx={{ width: 80 }}
+                                autoFocus
                               />
                               <TextField
                                 size="small"
                                 value={category.name}
-                                onChange={(e) => handleSaveCategory(category.id, { name: e.target.value })}
+                                onChange={(e) => handleCategoryChange(category.id, { name: e.target.value })}
+                                onBlur={handleFieldBlur}
+                                onKeyPress={handleFieldKeyPress}
                                 placeholder="Category Name"
-                              />
+                                select
+                                fullWidth
+                              >
+                                {availableCategories.map((cat) => (
+                                  <MenuItem key={cat} value={cat}>
+                                    {cat}
+                                  </MenuItem>
+                                ))}
+                                <MenuItem value="__new__">
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <AddIcon fontSize="small" />
+                                    Add New Category
+                                  </Box>
+                                </MenuItem>
+                              </TextField>
                             </Box>
                           ) : (
                             <Typography>{category.emoji} {category.name}</Typography>
                           )}
                         </TableCell>
-                        <TableCell>
-                          {editingCategory === category.id ? (
+                        <TableCell onClick={() => handleFieldClick(category.id, 'type')}>
+                          {editableField.categoryId === category.id && editableField.field === 'type' ? (
                             <TextField
                               select
                               size="small"
                               value={category.type}
-                              onChange={(e) => handleSaveCategory(category.id, { type: e.target.value as BudgetCategory['type'] })}
+                              onChange={(e) => handleCategoryChange(category.id, { type: e.target.value as BudgetCategory['type'] })}
+                              onBlur={handleFieldBlur}
+                              onKeyPress={handleFieldKeyPress}
+                              autoFocus
+                              fullWidth
                             >
-                              <MenuItem value="fixed">Fixed</MenuItem>
-                              <MenuItem value="flexible">Flexible</MenuItem>
-                              <MenuItem value="non-monthly">Non-Monthly</MenuItem>
+                              <MenuItem value="Fixed">Fixed</MenuItem>
+                              <MenuItem value="Flexible">Flexible</MenuItem>
+                              <MenuItem value="Non-Monthly">Non-Monthly</MenuItem>
                             </TextField>
                           ) : (
                             <Chip 
                               label={category.type} 
                               size="small"
-                              color={category.type === 'fixed' ? 'primary' : category.type === 'flexible' ? 'success' : 'warning'}
+                              color={category.type === 'Fixed' ? 'primary' : category.type === 'Flexible' ? 'success' : 'warning'}
                             />
                           )}
                         </TableCell>
-                        <TableCell align="right">
-                          {editingCategory === category.id ? (
+                        <TableCell 
+                          align="right"
+                          onClick={() => handleFieldClick(category.id, 'budgeted')}
+                        >
+                          {editableField.categoryId === category.id && editableField.field === 'budgeted' ? (
                             <TextField
                               size="small"
                               type="number"
                               value={category.budgeted}
-                              onChange={(e) => handleSaveCategory(category.id, { budgeted: Number(e.target.value) })}
+                              onChange={(e) => handleCategoryChange(category.id, { budgeted: Number(e.target.value) })}
+                              onBlur={handleFieldBlur}
+                              onKeyPress={handleFieldKeyPress}
                               sx={{ width: 120 }}
+                              autoFocus
                             />
                           ) : (
                             `$${category.budgeted.toLocaleString()}`
@@ -344,42 +416,13 @@ const Budget = () => {
                           />
                         </TableCell>
                         <TableCell align="right">
-                          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-                            {editingCategory === category.id ? (
-                              <>
-                                <IconButton 
-                                  size="small" 
-                                  color="primary"
-                                  onClick={() => setEditingCategory(null)}
-                                >
-                                  <CheckIcon />
-                                </IconButton>
-                                <IconButton 
-                                  size="small" 
-                                  color="error"
-                                  onClick={() => setEditingCategory(null)}
-                                >
-                                  <CloseIcon />
-                                </IconButton>
-                              </>
-                            ) : (
-                              <>
-                                <IconButton 
-                                  size="small"
-                                  onClick={() => handleEditCategory(category)}
-                                >
-                                  <EditIcon />
-                                </IconButton>
-                                <IconButton 
-                                  size="small" 
-                                  color="error"
-                                  onClick={() => handleDeleteCategory(category.id)}
-                                >
-                                  <DeleteIcon />
-                                </IconButton>
-                              </>
-                            )}
-                          </Box>
+                          <IconButton 
+                            size="small" 
+                            color="error"
+                            onClick={() => handleDeleteCategory(category.id)}
+                          >
+                            <DeleteIcon />
+                          </IconButton>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -389,8 +432,13 @@ const Budget = () => {
             </Paper>
           </Grid>
 
-          {/* Add Category Dialog */}
-          <Dialog open={isAddingCategory} onClose={() => setIsAddingCategory(false)} maxWidth="sm" fullWidth>
+          {/* Add Category Dialog - Modified for new category creation */}
+          <Dialog 
+            open={isAddingCategory} 
+            onClose={() => setIsAddingCategory(false)} 
+            maxWidth="sm" 
+            fullWidth
+          >
             <DialogTitle>Add New Budget Category</DialogTitle>
             <DialogContent>
               <Grid container spacing={2} sx={{ mt: 1 }}>
@@ -405,11 +453,35 @@ const Budget = () => {
                 </Grid>
                 <Grid item xs={12} sm={10}>
                   <TextField
+                    select
                     fullWidth
-                    label="Category Name"
+                    label="Category"
                     value={newCategory.name || ''}
-                    onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })}
-                  />
+                    onChange={(e) => {
+                      if (e.target.value === '__new__') {
+                        // Handle new category creation
+                        const newCategoryName = prompt('Enter new category name:');
+                        if (newCategoryName) {
+                          setAvailableCategories([...availableCategories, newCategoryName]);
+                          setNewCategory({ ...newCategory, name: newCategoryName });
+                        }
+                      } else {
+                        setNewCategory({ ...newCategory, name: e.target.value });
+                      }
+                    }}
+                  >
+                    {availableCategories.map((category) => (
+                      <MenuItem key={category} value={category}>
+                        {category}
+                      </MenuItem>
+                    ))}
+                    <MenuItem value="__new__">
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <AddIcon fontSize="small" />
+                        Add New Category
+                      </Box>
+                    </MenuItem>
+                  </TextField>
                 </Grid>
                 <Grid item xs={12}>
                   <TextField
@@ -419,9 +491,9 @@ const Budget = () => {
                     value={newCategory.type}
                     onChange={(e) => setNewCategory({ ...newCategory, type: e.target.value as BudgetCategory['type'] })}
                   >
-                    <MenuItem value="fixed">Fixed</MenuItem>
-                    <MenuItem value="flexible">Flexible</MenuItem>
-                    <MenuItem value="non-monthly">Non-Monthly</MenuItem>
+                    <MenuItem value="Fixed">Fixed</MenuItem>
+                    <MenuItem value="Flexible">Flexible</MenuItem>
+                    <MenuItem value="Non-Monthly">Non-Monthly</MenuItem>
                   </TextField>
                 </Grid>
                 <Grid item xs={12}>
@@ -608,7 +680,7 @@ const Budget = () => {
                 </Button>
               </Box>
               {categories
-                .filter(cat => cat.type === 'non-monthly')
+                .filter(cat => cat.type === 'Non-Monthly')
                 .map(category => (
                   <Box
                     key={category.id}
