@@ -1,91 +1,61 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 
-	"github.com/tyronsamaroo/zero-budget-app/internal/database"
-	"github.com/tyronsamaroo/zero-budget-app/internal/models"
-
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"github.com/tyronsamaroo/zero-budget-app/internal/database"
+	"github.com/tyronsamaroo/zero-budget-app/internal/handlers"
+	"github.com/tyronsamaroo/zero-budget-app/internal/routes"
 )
 
-func init() {
-	// Try to load .env file from different possible locations
-	envPaths := []string{
-		".env",
-		"../../.env",
-		"../../../.env",
-	}
-
-	var loaded bool
-	for _, path := range envPaths {
-		if err := godotenv.Load(path); err == nil {
-			loaded = true
-			break
-		}
-	}
-
-	if !loaded {
-		log.Fatal("Error: no .env file found")
-	}
-}
-
 func main() {
-	// Initialize database
-	database.InitDB()
-
-	// Auto migrate models
-	if err := database.DB.AutoMigrate(
-		&models.User{},
-		&models.Category{},
-		&models.Budget{},
-		&models.Transaction{},
-	); err != nil {
-		log.Fatal("Failed to migrate database:", err)
+	// Load environment variables
+	if err := godotenv.Load("../../.env"); err != nil {
+		log.Printf("Warning: Error loading .env file: %v", err)
 	}
 
-	// Set Gin mode
-	if os.Getenv("ENV") == "production" {
-		gin.SetMode(gin.ReleaseMode)
+	// Initialize database connection
+	db, err := database.Connect()
+	if err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	// Initialize router
-	router := gin.Default()
+	// Initialize handlers with database connection
+	handlers.Initialize(db)
 
-	// CORS middleware
-	router.Use(func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
-		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
+	// Run migrations
+	log.Println("Running migrations...")
+	database.RunMigrations()
 
-		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(204)
-			return
-		}
+	// Seed test user
+	database.SeedTestUser()
 
-		c.Next()
-	})
+	// Create a new gin router
+	r := gin.Default()
 
-	// Health check endpoint
-	router.GET("/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"status": "ok",
-		})
-	})
+	// Configure CORS
+	config := cors.DefaultConfig()
+	config.AllowOrigins = []string{"http://localhost:3000"}
+	config.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
+	config.AllowHeaders = []string{"Origin", "Content-Type", "Accept", "Authorization"}
+	config.AllowCredentials = true
+	r.Use(cors.New(config))
 
-	// Get port from env
+	// Setup routes
+	routes.SetupRoutes(r)
+
+	// Get port from environment variable or use default
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
 
-	// Start server
 	log.Printf("Server starting on port %s", port)
-	if err := router.Run(":" + port); err != nil {
-		log.Fatal(fmt.Sprintf("Failed to start server: %v", err))
+	if err := r.Run(":" + port); err != nil {
+		log.Fatalf("Failed to start server: %v", err)
 	}
 }

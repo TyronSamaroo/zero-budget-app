@@ -1,130 +1,106 @@
-import React, { useState, useEffect } from 'react';
-import {
-  Container,
-  Box,
-  Typography,
-  Paper,
-  CircularProgress,
-  Alert,
-} from '@mui/material';
-import { format, parse } from 'date-fns';
-import useBudgetStore, { BudgetCategory } from '../store/budgetStore';
-import BudgetCategories from '../components/budget/BudgetCategories';
-import BudgetSummary from '../components/budget/BudgetSummary';
+import React from 'react';
+import { Container, Grid, Button, Box, Typography } from '@mui/material';
+import { Add as AddIcon } from '@mui/icons-material';
+import BudgetOverview from '../components/budget/BudgetOverview';
+import BudgetTable from '../components/budget/BudgetTable';
+import BudgetForm from '../components/budget/BudgetForm';
+import { useBudgetStore } from '../store/budgetStore';
 
-const Budget = () => {
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+const Budget: React.FC = () => {
+  const [isFormOpen, setIsFormOpen] = React.useState(false);
+  const [editingId, setEditingId] = React.useState<number | undefined>(undefined);
+  const { fetchBudgetSummary, fetchCategories, resetStore } = useBudgetStore();
 
-  const {
-    budgetData,
-    settings,
-    selectedMonth,
-    updateMonthlyIncome,
-    updateBudget,
-  } = useBudgetStore();
-
-  useEffect(() => {
-    const initializeBudget = async () => {
+  // Reset and fetch data when component mounts
+  React.useEffect(() => {
+    const initializeData = async () => {
+      console.log('Budget component mounted, resetting store and fetching fresh data');
+      
+      // Clear any browser storage
+      localStorage.clear();
+      sessionStorage.clear();
+      
+      // Reset the store
+      resetStore();
+      
       try {
-        setIsLoading(true);
-        // Initialize with default monthly income if not set
-        if (!settings.monthlyIncome) {
-          updateMonthlyIncome(5000);
-        }
-        // Initialize empty budget data if not exists
-        if (!budgetData[selectedMonth]) {
-          updateBudget(selectedMonth, []);
-        }
-        setError(null);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to initialize budget');
-        console.error('Budget initialization error:', err);
-      } finally {
-        setIsLoading(false);
+        console.log('Fetching fresh data from server...');
+        await Promise.all([
+          fetchBudgetSummary(),
+          fetchCategories()
+        ]);
+        console.log('Fresh data fetched successfully');
+      } catch (error) {
+        console.error('Error fetching initial data:', error);
       }
     };
 
-    initializeBudget();
-  }, [updateMonthlyIncome, updateBudget, selectedMonth, settings.monthlyIncome, budgetData]);
+    initializeData();
+  }, []);
 
-  const handleUpdateCategory = (updatedCategory: BudgetCategory) => {
-    const currentCategories = budgetData[selectedMonth]?.categories || [];
-    const updatedCategories = currentCategories.map(cat => 
-      cat.id === updatedCategory.id ? updatedCategory : cat
-    );
-    updateBudget(selectedMonth, updatedCategories);
+  // Refresh data when form closes
+  const handleCloseForm = async () => {
+    console.log('Form closing, refreshing data...');
+    setIsFormOpen(false);
+    setEditingId(undefined);
+    
+    try {
+      // Clear any browser storage again
+      localStorage.clear();
+      sessionStorage.clear();
+      
+      // Reset store and fetch fresh data
+      resetStore();
+      console.log('Fetching fresh data after form close...');
+      await Promise.all([
+        fetchBudgetSummary(),
+        fetchCategories()
+      ]);
+      console.log('Fresh data fetched after form close');
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+    }
   };
 
-  const handleAddCategory = (newCategory: BudgetCategory) => {
-    const currentCategories = budgetData[selectedMonth]?.categories || [];
-    const updatedCategories = [...currentCategories, newCategory];
-    updateBudget(selectedMonth, updatedCategories);
+  const handleAddClick = () => {
+    setEditingId(undefined);
+    setIsFormOpen(true);
   };
 
-  const handleUpdateBudget = (category: string, amount: number) => {
-    const currentCategories = budgetData[selectedMonth]?.categories || [];
-    const updatedCategories = currentCategories.map(cat => 
-      cat.name === category ? { ...cat, budgeted: amount } : cat
-    );
-    updateBudget(selectedMonth, updatedCategories);
+  const handleEditClick = (id: number) => {
+    setEditingId(id);
+    setIsFormOpen(true);
   };
-
-  if (isLoading) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="80vh">
-        <CircularProgress />
-      </Box>
-    );
-  }
-
-  if (error) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="80vh">
-        <Alert severity="error">{error}</Alert>
-      </Box>
-    );
-  }
-
-  const currentCategories = budgetData[selectedMonth]?.categories || [];
-  const budgets = currentCategories.reduce((acc, cat) => {
-    acc[cat.name] = cat.budgeted;
-    return acc;
-  }, {} as Record<string, number>);
-
-  const displayDate = parse(selectedMonth, 'yyyy-MM', new Date());
 
   return (
-    <Container maxWidth="lg">
+    <Container maxWidth="xl">
       <Box sx={{ py: 4 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-          <Box>
-            <Typography variant="h4" gutterBottom fontWeight="bold">
-              Budget Overview
-            </Typography>
-            <Typography variant="body1" color="text.secondary">
-              {format(displayDate, 'MMMM yyyy')}
-            </Typography>
-          </Box>
-        </Box>
-        
-        <Paper sx={{ mb: 3 }}>
-          <BudgetSummary 
-            monthlyIncome={settings.monthlyIncome}
-            transactions={[]}
-            budgets={budgets}
-          />
-        </Paper>
-        
-        <Paper>
-          <BudgetCategories
-            categories={currentCategories}
-            budgets={budgets}
-            onUpdateBudget={handleUpdateBudget}
-            onUpdateCategory={handleUpdateCategory}
-            onAddCategory={handleAddCategory}
-          />
-        </Paper>
+        <Grid container spacing={3}>
+          <Grid item xs={12}>
+            <BudgetOverview />
+          </Grid>
+
+          <Grid item xs={12}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6">Budget Categories</Typography>
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<AddIcon />}
+                onClick={handleAddClick}
+              >
+                Add Category
+              </Button>
+            </Box>
+            <BudgetTable onEdit={handleEditClick} />
+          </Grid>
+        </Grid>
+
+        <BudgetForm
+          open={isFormOpen}
+          onClose={handleCloseForm}
+          editId={editingId}
+        />
       </Box>
     </Container>
   );
